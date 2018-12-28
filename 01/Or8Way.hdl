@@ -13,13 +13,5 @@ CHIP Or8Way {
     OUT out;
 
     PARTS:
-    Or(a=in[0], b=in[1], out=or0and1);
-    Or(a=in[2], b=in[3], out=or2and3);
-    Or(a=in[4], b=in[5], out=or4and5);
-    Or(a=in[7], b=in[7], out=or6and7);
-
-    Or(a=or0and1, b=or2and3, out=orfirsthalf);
-    Or(a=or4and5, b=or6and7, out=orlasthalf);
-
-    Or(a=orfirsthalf, b=orlasthalf, out=out);
+    Or16(in[0..7]=in, out[0..7]=out);
 }
