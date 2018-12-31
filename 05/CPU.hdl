@@ -39,5 +39,69 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+    // Determine if A or C instruction
+    DMux(in=true, sel=instruction[15], a=instrA, b=instrC);
+
+    // Extract dest
+    DMux8Way(in=true, sel[0..2]=instruction[3..5], b=setM, c=setD, d=setMD,
+             e=setA, f=setAM, g=setAD, h=setAMD);
+    Or8Way(in[0]=setM, in[1]=setMD, in[2]=setAM, in[3]=setAMD,
+           out=destM);
+    Or8Way(in[0]=setA, in[1]=setAM, in[2]=setAD, in[3]=setAMD,
+          out=destA);
+    Or8Way(in[0]=setD, in[1]=setMD, in[2]=setAD, in[3]=setAMD,
+           out=destD);
+
+    // Extract jump
+    DMux8Way(in=true, sel[0..2]=instruction[0..2], b=JGT, c=JEQ, d=JGE,
+             e=JLT, f=JNE, g=JLE, h=JMP);
+
+    // Jump when JEQ, JGE, JLE and zr == 1
+    Or8Way(in[0]=JEQ, in[1]=JGE, in[2]=JLE, out=jumpWhenZero);
+    And(a=jumpWhenZero, b=zr, out=jumpJEQJGEJLE);
+
+    // Jump when JNE and zr == 0
+    And(a=notZR, b=JNE, out=jumpJNE); 
+
+    // Jump when JLT, JLE and ng == 1
+    Or(a=JLT, b=JLE, out=jumpWhenLessThanZero);
+    And(a=jumpWhenLessThanZero, b=ng, out=jumpJLTJLE);
+
+    // Jump when JGT, JGE and zr == 0 and ng == 0
+    Or(a=JGT, b=JGE, out=jumpWhenGreaterThanZero);
+    And(a=jumpWhenGreaterThanZero, b=notZR, out=jumpWhenGreaterAndNotZero);
+    And(a=jumpWhenGreaterAndNotZero, b=notNG, out=jumpJGTJGE);
+
+    // Should jump under these circumstances...
+    Or8Way(in[0]=jumpJEQJGEJLE, in[1]=jumpJNE, in[2]=jumpJLTJLE, in[3]=JMP,
+           in[4]=jumpJGTJGE, out=jumpConditionMet);
+    And(a=jumpConditionMet, b=instrC, out=jump);
+
+    // Next if nothing else specified and matched
+    Not(in=jump, out=next);
+
+    // Map pins to ARegister
+    Or(a=instrA, b=destA, out=loadA);
+    Mux16(b[0..14]=instruction[0..14], a=outALU, sel=instrA, out=inA);
+    ARegister(in=inA, load=loadA, out=outA, out[0..14]=addressM);
+
+    // Map pins to DRegister
+    And(a=destD, b=instrC, out=loadD);
+    DRegister(in=inD, load=loadD, out=X);
+
+    // Set writeM
+    And(a=instrC, b=destM, out=writeM);
+
+    // ALU
+    Mux16(a=outA, b=inM, sel=instruction[12], out=Y);
+    ALU(x=X, y=Y, zx=instruction[11], nx=instruction[10], zy=instruction[9],
+        ny=instruction[8], f=instruction[7], no=instruction[6],
+        out=inD, out=outM, out=outALU, zr=zr, ng=ng);
+    Not(in=zr, out=notZR);
+    Not(in=ng, out=notNG);
+
+    // PC
+    And(a=instrC, b=next, out=gotoNextC);
+    Or(a=gotoNextC, b=instrA, out=gotoNext);
+    PC(reset=reset, load=jump, inc=gotoNext, in=outA, out[0..14]=pc);
 }
