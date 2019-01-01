@@ -43,13 +43,13 @@ CHIP CPU {
     DMux(in=true, sel=instruction[15], a=instrA, b=instrC);
 
     // ALU
-    Mux16(a=outA, b=inM, sel=instruction[12], out=Y);
-    ALU(x=X, y=Y, zx=instruction[11], nx=instruction[10], zy=instruction[9],
-        ny=instruction[8], f=instruction[7], no=instruction[6],
-        out=inD, out=outM, out=outALU, zr=zr, ng=ng);
+    Mux16(a=outA, b=inM, sel=instruction[12], out=outAorM);
+    ALU(x=outD, y=outAorM, zx=instruction[11], nx=instruction[10],
+        zy=instruction[9], ny=instruction[8], f=instruction[7],
+        no=instruction[6], out=inD, out=outM, out=outALU, zr=zr, ng=ng);
     Not(in=zr, out=notZR);
     Not(in=ng, out=notNG);
-    And(a=notZR, b=notNG, out=greaterThanZero);
+    And(a=notZR, b=notNG, out=pos);
 
     // ARegister
     Mux16(a=outALU, b[0..14]=instruction[0..14], sel=instrA, out=inA);
@@ -58,22 +58,20 @@ CHIP CPU {
 
     // DRegister
     And(a=instruction[4], b=instrC, out=loadD);
-    DRegister(in=inD, load=loadD, out=X);
+    DRegister(in=inD, load=loadD, out=outD);
 
     // Set writeM
     And(a=instrC, b=instruction[3], out=writeM);
 
     // Determine jump
-    And(a=instruction[2], b=ng, out=jumpLessThanZero);
-    And(a=instruction[1], b=zr, out=jumpEqualZero);
-    And(a=instruction[0], b=greaterThanZero, out=jumpGreaterThanZero);
-    Or8Way(in[0]=jumpGreaterThanZero, in[1]=jumpEqualZero,
-           in[2]=jumpLessThanZero, out=jumpMet);
+    And(a=instruction[2], b=ng, out=jumpL);
+    And(a=instruction[1], b=zr, out=jumpE);
+    And(a=instruction[0], b=pos, out=jumpG);
+    Or8Way(in[0]=jumpG, in[1]=jumpE, in[2]=jumpL, out=jumpMet);
     And(a=jumpMet, b=instrC, out=jump);
-    Not(in=jump, out=next);
+    Not(in=jump, out=noJump);
 
     // PC
-    And(a=instrC, b=next, out=gotoNextC);
-    Or(a=gotoNextC, b=instrA, out=gotoNext);
-    PC(reset=reset, load=jump, inc=gotoNext, in=outA, out[0..14]=pc);
+    Or(a=noJump, b=instrA, out=next);
+    PC(in=outA, load=jump, inc=next, reset=reset, out[0..14]=pc);
 }
