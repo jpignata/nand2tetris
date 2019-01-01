@@ -39,7 +39,9 @@ with open(sys.argv[2], 'w') as outfile:
                     symbols[symbol] = variable_symbol
                     variable_symbol += 1
                 outfile.write(format(symbols[symbol], '016b'))
-        elif line[0] != '(':
+        elif line[0] == '(':
+            continue
+        else:
             matches = pattern.match(line)
             dest, comp, jump = matches.group('dest', 'comp', 'jump')
             outfile.write('111' + format(comps[comp], '07b') +
