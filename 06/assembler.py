@@ -9,8 +9,8 @@ comps = {'0': 42, '1': 63, '-1': 58, 'D': 12, 'A': 48, 'M': 112, '!D': 13,
          'A+1': 55, 'M+1': 119, 'D-1': 14, 'A-1': 50, 'M-1': 114, 'D+A': 2,
          'D+M': 66, 'D-A': 19, 'D-M': 83, 'A-D': 7, 'M-D': 71, 'D&A': 0,
          'D&M': 64, 'D|A': 21, 'D|M': 85}
-dests = [None, 'M', 'D', 'MD', 'A', 'AM', 'AD', 'AMD']
-jumps = [None, 'JGT', 'JEQ', 'JGE', 'JLT', 'JNE', 'JLE', 'JMP']
+dests = None, 'M', 'D', 'MD', 'A', 'AM', 'AD', 'AMD'
+jumps = None, 'JGT', 'JEQ', 'JGE', 'JLT', 'JNE', 'JLE', 'JMP'
 line_number = 0
 symbol_address = 16
 
