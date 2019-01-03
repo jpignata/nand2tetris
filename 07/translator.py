@@ -2,7 +2,6 @@ import sys
 import re
 from collections import defaultdict
 
-pattern = re.compile(r'(?P<command>\w+) ?(?P<arg1>\w+)? ?(?P<arg2>\d+)?')
 
 class Writer:
     def __init__(self, f):
@@ -15,9 +14,11 @@ class Writer:
         self.file.write('\n'.join(lines))
         self.file.write('\n')
 
+
 class Command:
     BASE_ADDRESS = {'local': 'LCL', 'argument': 'ARG', 'this': 'THIS',
                     'that': 'THAT'}
+    POINTER = '@THIS', '@THAT'
 
     def null():
         return Null
@@ -25,34 +26,62 @@ class Command:
     def length(self):
         return len(self.asm())
 
+
 class Null(Command):
-    def asm(self, position=0):
+    def asm(self, namespace=None, position=0):
         return ()
+
 
 class Push(Command):
     def __init__(self, segment, index):
         self.segment = segment
         self.index = index
 
-    def asm(self, position=0):
-        statements = [f'@{self.index}',
-                      'D=A']
+    def asm(self, namespace=None, position=0):
+        statements = [f'@{self.index}', 'D=A']
 
-        if self.segment != 'constant':
-            statements += [f'@{self.BASE_ADDRESS[self.segment]}',
-                           'A=M+D', 'D=A']
+        if self.segment in self.BASE_ADDRESS:
+            symbol = self.BASE_ADDRESS[self.segment]
+            statements += [f'@{symbol}', 'A=M+D', 'D=M']
+        elif self.segment == 'temp':
+            statements += ['@R5', 'A=A+D', 'D=M']
+        elif self.segment == 'pointer':
+            pointer = self.POINTER[self.index]
+            statements += [pointer, 'D=M']
+        elif self.segment == 'static':
+            qualified_symbol = f'@{namespace}.{self.index}'
+            statements += [qualified_symbol, 'D=M']
 
-        statements += ['@SP',
-                       'A=M',
-                       'M=D',
-                       '@SP',
-                       'M=M+1']
+        statements += ['@SP', 'A=M', 'M=D', '@SP', 'M=M+1']
+        return statements
 
+
+class Pop(Command):
+    def __init__(self, segment, index):
+        self.segment = segment
+        self.index = index
+
+    def asm(self, namespace=None, position=0):
+        statements = [f'@{self.index}', 'D=A']
+
+        if self.segment in self.BASE_ADDRESS:
+            symbol = self.BASE_ADDRESS[self.segment]
+            statements += [f'@{symbol}', 'D=M+D', '@R13', 'M=D']
+        elif self.segment == 'temp':
+            statements += ['@R5', 'D=A+D', '@R13', 'M=D']
+        elif self.segment == 'pointer':
+            pointer = self.POINTER[self.index]
+            statements += [pointer, 'D=A', '@R13', 'M=D']
+        elif self.segment == 'static':
+            qualified_symbol = f'@{namespace}.{self.index}'
+            statements += [qualified_symbol, 'D=A', '@R13', 'M=D']
+
+        statements += ['@SP', 'AM=M-1', 'D=M', '@R13', 'A=M', 'M=D']
         return statements
 
 
 class Add(Command):
-    def asm(self, position=0):
+    def asm(self, namespace=None, position=0):
         return ('@SP',
                 'AM=M-1',
                 'D=M',
@@ -62,8 +91,9 @@ class Add(Command):
                 '@SP',
                 'M=M+1')
 
+
 class Sub(Command):
-    def asm(self, position=0):
+    def asm(self, namespace=None, position=0):
         return ('@SP',
                 'AM=M-1',
                 'D=M',
@@ -73,8 +103,9 @@ class Sub(Command):
                 '@SP',
                 'M=M+1')
 
+
 class Eq(Command):
-    def asm(self, position=0):
+    def asm(self, namespace=None, position=0):
         return ('@SP',
                 'AM=M-1',
                 'D=M',
@@ -94,8 +125,9 @@ class Eq(Command):
                 '@SP',
                 'M=M+1')
 
+
 class LT(Command):
-    def asm(self, position=0):
+    def asm(self, namespace=None, position=0):
         return ('@SP',
                 'AM=M-1',
                 'D=M',
@@ -115,8 +147,9 @@ class LT(Command):
                 '@SP',
                 'M=M+1')
 
+
 class GT(Command):
-    def asm(self, position=0):
+    def asm(self, namespace=None, position=0):
         return ('@SP',
                 'AM=M-1',
                 'D=M',
@@ -136,8 +169,9 @@ class GT(Command):
                 '@SP',
                 'M=M+1')
 
+
 class And(Command):
-    def asm(self, position=0):
+    def asm(self, namespace=None, position=0):
         return ('@SP',
                 'AM=M-1',
                 'D=M',
@@ -147,8 +181,9 @@ class And(Command):
                 '@SP',
                 'M=M+1')
 
+
 class Or(Command):
-    def asm(self, position=0):
+    def asm(self, namespace=None, position=0):
         return ('@SP',
                 'AM=M-1',
                 'D=M',
@@ -158,8 +193,9 @@ class Or(Command):
                 '@SP',
                 'M=M+1')
 
+
 class Neg(Command):
-    def asm(self, position=0):
+    def asm(self, namespace=None, position=0):
         return ('@SP',
                 'AM=M-1',
                 'D=M',
@@ -168,8 +204,9 @@ class Neg(Command):
                 '@SP',
                 'M=M+1')
 
+
 class Not(Command):
-    def asm(self, position=0):
+    def asm(self, namespace=None, position=0):
         return ('@SP',
                 'AM=M-1',
                 'M=-M',
@@ -177,9 +214,13 @@ class Not(Command):
                 '@SP',
                 'M=M+1')
 
+
+pattern = re.compile(r'(?P<command>\w+) ?(?P<arg1>\w+)? ?(?P<arg2>\d+)?')
 commands = defaultdict(Command.null)
-commands['add'] = Add
+
 commands['push'] = Push
+commands['pop'] = Pop
+commands['add'] = Add
 commands['eq'] = Eq
 commands['lt'] = LT
 commands['gt'] = GT
@@ -190,6 +231,8 @@ commands['or'] = Or
 commands['not'] = Not
 
 with open(sys.argv[1]) as infile:
+    fname = sys.argv[1].split('/')[-1].split('.')[0]
+
     with open(sys.argv[2], 'w') as outfile:
         writer = Writer(outfile)
         length = 0
@@ -204,9 +247,9 @@ with open(sys.argv[1]) as infile:
                 cmd, arg1, arg2 = matches.group('command', 'arg1', 'arg2')
 
                 if cmd == 'push' or cmd == 'pop':
-                    command = commands[cmd](arg1, arg2)
+                    command = commands[cmd](arg1, int(arg2))
                 else:
                     command = commands[cmd]()
 
-                writer.lines(command.asm(position=length - 1))
+                writer.lines(command.asm(namespace=fname, position=length - 1))
                 length += command.length()
