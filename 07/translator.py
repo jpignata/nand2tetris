@@ -26,9 +26,39 @@ class Command:
     def length(self):
         return len(self.asm())
 
+    def compare(self, method, position=0):
+        return ('@SP',
+                'AM=M-1',
+                'D=M',
+                '@SP',
+                'AM=M-1',
+                'D=M-D',
+                f'@{position + 14}',
+                f'D; J{method}',
+                '@SP',
+                'A=M',
+                'M=0',
+                f'@{position + 17}',
+                '0; JMP',
+                '@SP',
+                'A=M',
+                'M=-1',
+                '@SP',
+                'M=M+1')
+
+    def operate(self, operator):
+        return ('@SP',
+                'AM=M-1',
+                'D=M',
+                '@SP',
+                'AM=M-1',
+                f'M=M{operator}D',
+                '@SP',
+                'M=M+1')
+
 
 class Null(Command):
-    def asm(self, namespace=None, position=0):
+    def asm(self, namespace=None, position=None):
         raise NotImplementedError
 
 
@@ -37,7 +67,7 @@ class Push(Command):
         self.segment = segment
         self.index = index
 
-    def asm(self, namespace=None, position=0):
+    def asm(self, namespace='Default', position=None):
         statements = [f'@{self.index}',
                       'D=A']
 
@@ -73,7 +103,7 @@ class Pop(Command):
         self.segment = segment
         self.index = index
 
-    def asm(self, namespace=None, position=0):
+    def asm(self, namespace='Default', position=None):
         statements = [f'@{self.index}',
                       'D=A']
 
@@ -91,9 +121,9 @@ class Pop(Command):
         elif self.segment == 'pointer':
             pointer = self.POINTER[self.index]
             statements += [pointer,
-                          'D=A',
-                          '@R13',
-                          'M=D']
+                           'D=A',
+                           '@R13',
+                           'M=D']
         elif self.segment == 'static':
             qualified_symbol = f'@{namespace}.{self.index}'
             statements += [qualified_symbol,
@@ -111,122 +141,43 @@ class Pop(Command):
         return statements
 
 
-class Add(Command):
+class EQ(Command):
     def asm(self, namespace=None, position=0):
-        return ('@SP',
-                'AM=M-1',
-                'D=M',
-                '@SP',
-                'AM=M-1',
-                'M=M+D',
-                '@SP',
-                'M=M+1')
-
-
-class Sub(Command):
-    def asm(self, namespace=None, position=0):
-        return ('@SP',
-                'AM=M-1',
-                'D=M',
-                '@SP',
-                'AM=M-1',
-                'M=M-D',
-                '@SP',
-                'M=M+1')
-
-
-class Eq(Command):
-    def asm(self, namespace=None, position=0):
-        return ('@SP',
-                'AM=M-1',
-                'D=M',
-                '@SP',
-                'AM=M-1',
-                'D=M-D',
-                f'@{position + 14}',
-                'D; JEQ',
-                '@SP',
-                'A=M',
-                'M=0',
-                f'@{position + 17}',
-                '0; JMP',
-                '@SP',
-                'A=M',
-                'M=-1',
-                '@SP',
-                'M=M+1')
+        return self.compare('EQ', position=position)
 
 
 class LT(Command):
     def asm(self, namespace=None, position=0):
-        return ('@SP',
-                'AM=M-1',
-                'D=M',
-                '@SP',
-                'AM=M-1',
-                'D=M-D',
-                f'@{position + 14}',
-                'D; JLT',
-                '@SP',
-                'A=M',
-                'M=0',
-                f'@{position + 17}',
-                '0; JMP',
-                '@SP',
-                'A=M',
-                'M=-1',
-                '@SP',
-                'M=M+1')
+        return self.compare('LT', position=position)
 
 
 class GT(Command):
     def asm(self, namespace=None, position=0):
-        return ('@SP',
-                'AM=M-1',
-                'D=M',
-                '@SP',
-                'AM=M-1',
-                'D=M-D',
-                f'@{position + 14}',
-                'D; JGT',
-                '@SP',
-                'A=M',
-                'M=0',
-                f'@{position + 17}',
-                '0; JMP',
-                '@SP',
-                'A=M',
-                'M=-1',
-                '@SP',
-                'M=M+1')
+        return self.compare('GT', position=position)
+
+
+class Add(Command):
+    def asm(self, namespace=None, position=None):
+        return self.operate('+')
+
+
+class Sub(Command):
+    def asm(self, namespace=None, position=None):
+        return self.operate('-')
 
 
 class And(Command):
-    def asm(self, namespace=None, position=0):
-        return ('@SP',
-                'AM=M-1',
-                'D=M',
-                '@SP',
-                'AM=M-1',
-                'M=D&M',
-                '@SP',
-                'M=M+1')
+    def asm(self, namespace=None, position=None):
+        return self.operate('&')
 
 
 class Or(Command):
-    def asm(self, namespace=None, position=0):
-        return ('@SP',
-                'AM=M-1',
-                'D=M',
-                '@SP',
-                'AM=M-1',
-                'M=D|M',
-                '@SP',
-                'M=M+1')
+    def asm(self, namespace=None, position=None):
+        return self.operate('|')
 
 
 class Neg(Command):
-    def asm(self, namespace=None, position=0):
+    def asm(self, namespace=None, position=None):
         return ('@SP',
                 'AM=M-1',
                 'D=M',
@@ -237,7 +188,7 @@ class Neg(Command):
 
 
 class Not(Command):
-    def asm(self, namespace=None, position=0):
+    def asm(self, namespace=None, position=None):
         return ('@SP',
                 'AM=M-1',
                 'M=-M',
@@ -251,10 +202,10 @@ commands = defaultdict(Command.null)
 
 commands['push'] = Push
 commands['pop'] = Pop
-commands['add'] = Add
-commands['eq'] = Eq
+commands['eq'] = EQ
 commands['lt'] = LT
 commands['gt'] = GT
+commands['add'] = Add
 commands['sub'] = Sub
 commands['neg'] = Neg
 commands['and'] = And

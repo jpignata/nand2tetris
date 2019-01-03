@@ -377,7 +377,7 @@ AM=M-1
 D=M
 @SP
 AM=M-1
-M=D&M
+M=M&D
 @SP
 M=M+1
 // push constant 82
@@ -394,7 +394,7 @@ AM=M-1
 D=M
 @SP
 AM=M-1
-M=D|M
+M=M|D
 @SP
 M=M+1
 // not
