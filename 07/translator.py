@@ -29,7 +29,7 @@ class Command:
 
 class Null(Command):
     def asm(self, namespace=None, position=0):
-        return ()
+        raise NotImplementedError
 
 
 class Push(Command):
@@ -38,21 +38,33 @@ class Push(Command):
         self.index = index
 
     def asm(self, namespace=None, position=0):
-        statements = [f'@{self.index}', 'D=A']
+        statements = [f'@{self.index}',
+                      'D=A']
 
         if self.segment in self.BASE_ADDRESS:
             symbol = self.BASE_ADDRESS[self.segment]
-            statements += [f'@{symbol}', 'A=M+D', 'D=M']
+            statements += [f'@{symbol}',
+                           'A=M+D',
+                           'D=M']
         elif self.segment == 'temp':
-            statements += ['@R5', 'A=A+D', 'D=M']
+            statements += ['@R5',
+                           'A=A+D',
+                           'D=M']
         elif self.segment == 'pointer':
             pointer = self.POINTER[self.index]
-            statements += [pointer, 'D=M']
+            statements += [pointer,
+                           'D=M']
         elif self.segment == 'static':
             qualified_symbol = f'@{namespace}.{self.index}'
-            statements += [qualified_symbol, 'D=M']
+            statements += [qualified_symbol,
+                           'D=M']
 
-        statements += ['@SP', 'A=M', 'M=D', '@SP', 'M=M+1']
+        statements += ['@SP',
+                       'A=M',
+                       'M=D',
+                       '@SP',
+                       'M=M+1']
+
         return statements
 
 
@@ -62,21 +74,40 @@ class Pop(Command):
         self.index = index
 
     def asm(self, namespace=None, position=0):
-        statements = [f'@{self.index}', 'D=A']
+        statements = [f'@{self.index}',
+                      'D=A']
 
         if self.segment in self.BASE_ADDRESS:
             symbol = self.BASE_ADDRESS[self.segment]
-            statements += [f'@{symbol}', 'D=M+D', '@R13', 'M=D']
+            statements += [f'@{symbol}',
+                           'D=M+D',
+                           '@R13',
+                           'M=D']
         elif self.segment == 'temp':
-            statements += ['@R5', 'D=A+D', '@R13', 'M=D']
+            statements += ['@R5',
+                           'D=A+D',
+                           '@R13',
+                           'M=D']
         elif self.segment == 'pointer':
             pointer = self.POINTER[self.index]
-            statements += [pointer, 'D=A', '@R13', 'M=D']
+            statements += [pointer,
+                          'D=A',
+                          '@R13',
+                          'M=D']
         elif self.segment == 'static':
             qualified_symbol = f'@{namespace}.{self.index}'
-            statements += [qualified_symbol, 'D=A', '@R13', 'M=D']
+            statements += [qualified_symbol,
+                           'D=A',
+                           '@R13',
+                           'M=D']
 
-        statements += ['@SP', 'AM=M-1', 'D=M', '@R13', 'A=M', 'M=D']
+        statements += ['@SP',
+                       'AM=M-1',
+                       'D=M',
+                       '@R13',
+                       'A=M',
+                       'M=D']
+
         return statements
 
 
